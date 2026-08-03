@@ -51,6 +51,17 @@ interface Reminder {
   text: string;
 }
 
+interface StoredLead {
+  id: string;
+  name: string;
+  phone: string;
+  intent: string;
+  note: string;
+  status: "New" | "Done";
+  timestamp: string;
+  submitter_telegram_id?: number;
+}
+
 /**
  * createDurableSessionStorage — a grammY StorageAdapter that routes each session
  * key to its own ChatDO instance. Pass to buildBot({ storage }) in the Worker.
@@ -144,6 +155,10 @@ export class ChatDO {
       }
     }
 
+    // Domain records use an explicit id index. This does not enumerate the
+    // Durable Object keyspace, so pagination stays bounded as the list grows.
+    if (url.pathname.startsWith("/leads")) return this.handleLeads(url, request);
+
     // Schedule a reminder + (re)arm the alarm to the earliest due one.
     if (url.pathname === "/remind" && request.method === "POST") {
       const rem = (await request.json()) as Reminder;
@@ -154,6 +169,46 @@ export class ChatDO {
       return new Response(null, { status: 204 });
     }
 
+    return new Response("not found", { status: 404 });
+  }
+
+  private async handleLeads(url: URL, request: Request): Promise<Response> {
+    const parts = url.pathname.split("/").filter(Boolean);
+    const index = (await this.state.storage.get<string[]>("leads:index")) ?? [];
+    const json = (value: unknown, status = 200) => Response.json({ ok: true, value }, { status });
+    if (parts.length === 1 && request.method === "POST") {
+      const lead = (await request.json()) as StoredLead;
+      if (!lead.id || !lead.name || !lead.phone || !lead.intent || !lead.note) return new Response("bad lead", { status: 400 });
+      await this.state.storage.put({ [`lead:${lead.id}`]: lead, "leads:index": [lead.id, ...index] });
+      return json(true);
+    }
+    if (parts.length === 1 && request.method === "GET") {
+      const page = Math.max(0, Number(url.searchParams.get("page")) || 0);
+      const size = Math.min(50, Math.max(1, Number(url.searchParams.get("size")) || 50));
+      const items: StoredLead[] = [];
+      for (const id of index.slice(page * size, page * size + size)) {
+        const lead = await this.state.storage.get<StoredLead>(`lead:${id}`);
+        if (lead) items.push(lead);
+      }
+      return json({ items, total: index.length });
+    }
+    const id = parts[1];
+    if (!id) return new Response("not found", { status: 404 });
+    const lead = await this.state.storage.get<StoredLead>(`lead:${id}`);
+    if (!lead) return new Response("not found", { status: 404 });
+    if (parts.length === 2 && request.method === "GET") return json(lead);
+    if (parts.length === 3 && request.method === "POST") {
+      if (parts[2] === "archive") {
+        await this.state.storage.delete(`lead:${id}`);
+        await this.state.storage.put("leads:index", index.filter((entry) => entry !== id));
+        return json(true);
+      }
+      if (parts[2] === "done" || parts[2] === "new") {
+        lead.status = parts[2] === "done" ? "Done" : "New";
+        await this.state.storage.put(`lead:${id}`, lead);
+        return json(true);
+      }
+    }
     return new Response("not found", { status: 404 });
   }
 

@@ -1,0 +1,46 @@
+[
+  {
+    "name": "a visitor can review a lead before sending it",
+    "steps": [
+      {
+        "send": { "text": "/start" },
+        "expect": [{ "method": "sendMessage", "payload": { "text": "Share your property plans and an agent will contact you." } }]
+      },
+      {
+        "send": { "callback": "lead:start" },
+        "expect": [{ "method": "editMessageText", "payload": { "text": "What’s your name?" } }]
+      },
+      {
+        "send": { "text": "Avery Morgan" },
+        "expect": [{ "method": "sendMessage", "payload": { "text": "What phone number should the agent use?" } }]
+      },
+      {
+        "send": { "text": "+1 555 0100" },
+        "expect": [{ "method": "sendMessage", "payload": { "text": "What are you looking to do?" } }]
+      },
+      {
+        "send": { "callback": "lead:intent:Buy" },
+        "expect": [{ "method": "editMessageText", "payload": { "text": "Add a short note about the property or timing." } }]
+      },
+      {
+        "send": { "text": "Looking for a two-bedroom near transit." },
+        "expect": [{ "method": "sendMessage", "payload": { "text": "Review your lead:\nName: Avery Morgan\nPhone: +1 555 0100\nIntent: Buy\nNote: Looking for a two-bedroom near transit." } }]
+      },
+      {
+        "send": { "callback": "lead:confirm" },
+        "expect": [{ "method": "editMessageText", "payload": { "text": "Lead storage isn’t available right now. Please try again shortly." } }]
+      }
+    ]
+  },
+  {
+    "name": "editing a reviewed lead restarts collection",
+    "steps": [
+      { "send": { "callback": "lead:start" }, "expect": [{ "method": "editMessageText", "payload": { "text": "What’s your name?" } }] },
+      { "send": { "text": "Avery" }, "expect": [{ "method": "sendMessage", "payload": { "text": "What phone number should the agent use?" } }] },
+      { "send": { "text": "555" }, "expect": [{ "method": "sendMessage", "payload": { "text": "What are you looking to do?" } }] },
+      { "send": { "callback": "lead:intent:Rent" }, "expect": [{ "method": "editMessageText", "payload": { "text": "Add a short note about the property or timing." } }] },
+      { "send": { "text": "Near work" }, "expect": [{ "method": "sendMessage", "payload": { "text": "Review your lead:\nName: Avery\nPhone: 555\nIntent: Rent\nNote: Near work" } }] },
+      { "send": { "callback": "lead:edit" }, "expect": [{ "method": "editMessageText", "payload": { "text": "What’s your name?" } }] }
+    ]
+  }
+]
