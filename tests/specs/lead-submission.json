@@ -4,7 +4,7 @@
     "steps": [
       {
         "send": { "text": "/start" },
-        "expect": [{ "method": "sendMessage", "payload": { "text": "Share your property plans and an agent will contact you." } }]
+        "expect": [{ "method": "sendMessage", "payload": { "text": "Share your property plans and an agent will contact you. Tap 'Submit request' to begin." } }]
       },
       {
         "send": { "callback": "lead:start" },
